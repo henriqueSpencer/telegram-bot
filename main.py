@@ -8,6 +8,9 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from picklefy import PickleFy
 
+import pg8000
+from contextlib import contextmanager
+
 
 
 
@@ -46,7 +49,7 @@ class TelegramBot:
             message_id = update.message.message_id
             user_name = update.message.chat.full_name
             chat_id = update.message.chat.id
-            msg = handler_mensage(menssage_text, chat_id)
+            msg = handler_message(menssage_text, chat_id)
             await update.message.reply_text(f"{msg.category} expense added ✅")
         except ValueError as e:
             # send telegram mensage with the error
@@ -90,12 +93,13 @@ class GeminiPipeline:
         }
 
 class Message:
-    def __init__(self, texto: str, user_id: int):
+    def __init__(self, texto: str, chat_id: int):
         """
         Class to represent one mensage
         """
         self.texto = texto
-        self.user_id = user_id
+        self.chat_id = chat_id
+        self.user_id = None
         self.is_expense = False
         self.amount = None
         self.category = None
@@ -131,35 +135,115 @@ class Message:
                 msg_returned += "the category from your expenditures, "
             raise ValueError(f"{msg_returned}\n please improve the text and send again.")
 
+
+
     def check_user(self):
-        return DBmanager().select_user(self.user_id)
+        user_exist = DBmanager().check_user(self.chat_id)
+        if not user_exist:
+            return False
+        self.user_id = DBmanager().get_userid_by_chatid(self.chat_id)
+        return True
+
 
 class DBmanager:
     def __init__(self):
-        pass
+        # Configurações de conexão com o banco de dados
+        self.config_connection = {
+            'user': os.getenv("DB_USER"),
+            'password': os.getenv("DB_PASSWORD"),
+            'database': "telegram_bot_bd",
+            'host': 'localhost',
+            'port': 5432
+        }
 
-    def save(self, message):
-        # caso qualquer erro, raise exption
-        pass
+    @contextmanager
+    def gerenciador_conexao_pg8000(self):
+        """
+        Gerenciador de contexto para conexão com o banco de dados.
+        """
+        conn = None
+        cursor = None
+        try:
+            # Abrir a conexão
+            conn = pg8000.connect(**self.config_connection)
+            cursor = conn.cursor()
+            yield cursor  # Retorna o cursor para uso dentro do bloco 'with'
+            conn.commit()  # Confirma as alterações no banco de dados
+        except Exception as e:
+            if conn:
+                conn.rollback()  # Desfaz as alterações em caso de erro
+            raise e
+        finally:
+            # Fechar o cursor e a conexão
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
-    def get(self, user_id):
-        pass
+    def select_expenses(self, user_id):
+        """
+        Seleciona despesas no bd
+        """
+        try:
+            with self.gerenciador_conexao_pg8000() as cursor:
+                # Executar a query para buscar o usuário
+                cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                resultado = cursor.fetchone()
+                return resultado is not None  # Retorna True se o usuário existir
+        except Exception as e:
+            print(f"Erro ao buscar usuário: {e}")
+            return False
 
-    def update(self, message):
-        pass
+    def insert_expense(self, message):
+        """
+        insert expense in the db
+        """
+        try:
+            with self.gerenciador_conexao_pg8000() as cursor:
 
-    def delete(self, user_id):
-        pass
+                # Inserir os dados na tabela
+                cursor.execute(
+                    "INSERT INTO expenses (user_id, description, amount, category) VALUES (%s, %s, %s, %s)",
+                    (message.user_id, message.texto, message.amount, message.category)
+                )
 
-    def select_user(self, user_id):
-        users = [1234, 3333,2900, 6799506447]
-        if user_id in users:
-            return True
-        return False
+        except Exception as e:
+            print(f"Erro ao buscar usuário: {e}")
+            return False
+
+    def check_user(self, telegram_id):
+        """
+        Verifica se um usuário existe no banco de dados e retorna seus dados.
+        """
+        try:
+            with self.gerenciador_conexao_pg8000() as cursor:
+                # Executar a query para buscar o usuário
+                #cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                cursor.execute("SELECT EXISTS (SELECT 1 FROM users WHERE telegram_id = %s)", (telegram_id,))
+                resultado = cursor.fetchone()
+                return resultado[0]  # Retorna os dados do usuário
+        except Exception as e:
+            print(f"Erro ao verificar usuário: {e}")
+            return False
+
+    def get_userid_by_chatid(self, telegram_id):
+        """
+        Verifica se um usuário existe no banco de dados e retorna seus dados.
+        """
+        try:
+            with self.gerenciador_conexao_pg8000() as cursor:
+                # Executar a query para buscar o usuário
+                #cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                cursor.execute("SELECT id FROM users WHERE telegram_id = %s", (telegram_id,))
+                resultado = cursor.fetchone()
+                return resultado[0]  # Retorna os dados do usuário
+        except Exception as e:
+            print(f"Erro ao verificar usuário: {e}")
+            return False
 
 
-def handler_mensage(menssage_text, user_id):
-    msg = Message(menssage_text, user_id)
+def handler_message(menssage_text, telegram_id):
+    msg = Message(menssage_text, telegram_id)
     if not msg.check_user():
         raise ValueError("User not found")
 
@@ -174,7 +258,7 @@ def handler_mensage(menssage_text, user_id):
         raise e
     try:
         db = DBmanager()
-        db.save(msg)
+        db.insert_expense(msg)
     except Exception as e:
         e.message = f"Error to save the message: {e.message}"
         raise e
@@ -183,8 +267,6 @@ def handler_mensage(menssage_text, user_id):
 
 
 if __name__ == "__main__":
-
-
     tg_bot = TelegramBot()
     tg_bot.main()
 
