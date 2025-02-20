@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Header, HTTPException
 from app.api.v1.schemas.message import MessageResponse, MessageRequest
+from app.services.message_service import process_message
 import os
 
 
@@ -18,14 +19,9 @@ async def message_process(request: MessageRequest, api_key: str = Header(None)):
     if api_key != API_KEY:
         raise HTTPException(status_code=403, detail="🔒 Access denied: Invalid API Key.")
 
-    chat_id = request.chat_id
-    text = request.text
-
-    # 🚀 Simulated expense processing logic
-    if "spent" in text.lower() or "bought" in text.lower():
-        reply = f"📊 It looks like you're logging an expense: '{text}'"
-    else:
-        reply = f"🤖 I received your message: '{text}'"
-
-    return {"chat_id": chat_id, "reply": reply}
+    try:
+        response = await process_message(request.text, request.chat_id)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
