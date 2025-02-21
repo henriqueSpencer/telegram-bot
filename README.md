@@ -1,6 +1,6 @@
-# Bot Service
+# Telegram Bot
 
-The **Bot Service** is a service developed in **Python** using **FastAPI** and **LangChain** to process messages from Telegram users. It analyzes messages, categorizes expenses, and stores the data in a **PostgreSQL** database.
+This is the **Bot Service** of the project, it is a service developed in **Python** using **FastAPI** and **LangChain** to process messages from Telegram users. It analyzes messages, categorizes expenses, and stores the data in a **PostgreSQL** database.
 
 ## Technologies Used
 
