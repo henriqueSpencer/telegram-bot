@@ -38,7 +38,7 @@ async def process_message(text: str, chat_id: int):
 
         return {
             "chat_id": message.chat_id,
-            "reply": f"📊 {message.category} expense added ✅",
+            "reply": f"{message.category} expense added ✅",
             "category": message.category,
             "amount": message.amount,
         }
