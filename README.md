@@ -14,7 +14,7 @@ The **Bot Service** is a service developed in **Python** using **FastAPI** and *
 
 ### 1. Clone the Repository
 ```sh
-git clone <REPOSITORY_URL>
+git clone https://github.com/henriqueSpencer/telegram-bot.git
 cd bot-service
 ```
 
@@ -33,9 +33,11 @@ pip install -r requirements.txt
 ### 4. Configure Environment Variables
 Create a **.env** file in the root of the project:
 ```ini
-DATABASE_URL=postgresql://user:password@localhost:5432/botdb
-API_KEY=<YOUR_API_KEY>
-LANGCHAIN_API_KEY=<LLM_API_KEY>
+GOOGLE_API_KEY = ""
+TELEGRAM_API_TOKEN = ""
+DB_USER = ""
+DB_PASSWORD = ""
+API_KEY = ""
 ```
 
 ### 5. Database Tables Structures
@@ -93,6 +95,5 @@ bot-service/
 - Messages should follow the format "Item Amount" (e.g., "Pizza 20 bucks").
 - Detailed logs help in debugging and monitoring the service.
 
----
 
 
